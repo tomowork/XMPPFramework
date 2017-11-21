@@ -1455,6 +1455,47 @@ enum XMPPStreamConfig
 		dispatch_async(xmppQueue, block);
 }
 
+- (void)disconnectAfterSendingEndStream
+{
+    XMPPLogTrace();
+    
+    dispatch_block_t block = ^{ @autoreleasepool {
+        
+        if (state != STATE_XMPP_DISCONNECTED)
+        {
+            [multicastDelegate xmppStreamWasToldToDisconnect:self];
+            
+            if (state == STATE_XMPP_RESOLVING_SRV)
+            {
+                [srvResolver stop];
+                srvResolver = nil;
+                
+                state = STATE_XMPP_DISCONNECTED;
+                
+                [multicastDelegate xmppStreamDidDisconnect:self withError:nil];
+            }
+            else
+            {
+                NSString *termStr = @"</stream:stream>";
+                NSData *termData = [termStr dataUsingEncoding:NSUTF8StringEncoding];
+                
+                XMPPLogSend(@"SEND: %@", termStr);
+                numberOfBytesSent += [termData length];
+                
+                [asyncSocket writeData:termData withTimeout:TIMEOUT_XMPP_WRITE tag:TAG_XMPP_WRITE_STOP];
+                [asyncSocket disconnectAfterWriting];
+                
+                // Everthing will be handled in socketDidDisconnect:withError:
+            }
+        }
+    }};
+    
+    if (dispatch_get_specific(xmppQueueTag))
+        block();
+    else
+        dispatch_sync(xmppQueue, block);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark Security

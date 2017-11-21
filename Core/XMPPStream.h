@@ -1,8 +1,8 @@
 #import <Foundation/Foundation.h>
 #import "XMPPSASLAuthentication.h"
 #import "XMPPCustomBinding.h"
-#import "GCDAsyncSocket.h"
 #import "GCDMulticastDelegate.h"
+#import "GCDAsyncSocket.h"
 
 #if TARGET_OS_IPHONE
   #import "DDXML.h"
@@ -361,6 +361,8 @@ extern const NSTimeInterval XMPPStreamTimeoutNone;
  * Attempting to send elements after this method has been called will not work (the elements won't get sent).
 **/
 - (void)disconnectAfterSending;
+
+- (void)disconnectAfterSendingEndStream;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark Security

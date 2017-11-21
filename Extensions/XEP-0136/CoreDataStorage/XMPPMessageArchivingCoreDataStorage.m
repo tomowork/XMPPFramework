@@ -4,6 +4,8 @@
 #import "NSXMLElement+XEP_0203.h"
 #import "XMPPMessage+XEP_0085.h"
 
+#import "VoiceConverter.h"
+
 #if ! __has_feature(objc_arc)
 #warning This file must be compiled with ARC. Use -fobjc-arc flag (or convert project to ARC).
 #endif
@@ -336,6 +338,35 @@ static XMPPMessageArchivingCoreDataStorage *sharedInstance;
 	// Message should either have a body, or be a composing notification
 	
 	NSString *messageBody = [[message elementForName:@"body"] stringValue];
+    
+    if (IsStrEmpty(messageBody)) {
+        return;
+    }
+    
+    //如果是音频或者图片，先将内容保存到本地，然后将路径值设给message body
+    
+    if ([[message subject] isEqualToString:@"voice"]) {
+        
+        NSData *audioData =  [[NSData alloc] initWithBase64EncodedString:messageBody options:0];
+        NSString *amrFileName=[self pathForFile:[NSString stringWithFormat:@"%@.amr",[xmppStream generateUUID]]];
+        
+        if ([audioData writeToFile:amrFileName atomically:YES]) {
+            NSString *wavPath = [VoiceConverter amrToWav:amrFileName];
+            messageBody = wavPath;
+            
+            //删除amr文件
+            [[NSFileManager defaultManager] removeItemAtPath:amrFileName error:nil];
+        }
+        
+        
+    }else if([[message subject] isEqualToString:@"picture"]){
+        
+        NSString *imageFileName=[self pathForFile:[NSString stringWithFormat:@"%@.jpg",[xmppStream generateUUID]]];
+         NSData *imageData =  [[NSData alloc] initWithBase64EncodedString:messageBody options:0];
+        [imageData writeToFile:imageFileName atomically:YES];
+        messageBody = imageFileName;
+    }
+    
 	BOOL isComposing = NO;
 	BOOL shouldDeleteComposingMessage = NO;
 	
@@ -482,7 +513,30 @@ static XMPPMessageArchivingCoreDataStorage *sharedInstance;
 				}
 			}
 		}
+        
+        //当消息已经保存好，通知控制器来取
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSDictionary *messageDic = [NSDictionary dictionaryWithObject:archivedMessage
+                                                                   forKey:@"message"];
+            [[NSNotificationCenter defaultCenter] postNotificationName:@"DidReceiveNewMessage"
+                                                                object:self
+                                                              userInfo:messageDic];    });
+
 	}];
+}
+
+/**
+ *  返回文件保存的路径
+ *
+ *  @return 文件路径
+ */
+-(NSString*)pathForFile:(NSString*)UUID
+{
+    NSString *path = [[NSHomeDirectory() stringByAppendingPathComponent:@"Documents"] stringByAppendingPathComponent:@"AudioAndImage"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:path withIntermediateDirectories:YES attributes:nil error:nil];
+    NSString *result = [path stringByAppendingPathComponent:UUID];
+    
+    return result;
 }
 
 @end

@@ -20,6 +20,7 @@
 * The default value is NO.
 */
 @property (nonatomic, assign) BOOL autoAcceptFileTransfers;
+@property (nonatomic, strong)XMPPJID *senderJID;
 
 /**
 * Sends a response to the file transfer initiator accepting the Stream
